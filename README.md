@@ -1,6 +1,10 @@
 # Loan Application SPA
 
+**Live demo:** <https://arsenpoghosyan1989.github.io/loan-application-spa/>
+
 Одностраничное приложение с тремя последовательными формами для оформления заявки на займ. Данные всех шагов сохраняются в общем React-контексте и доступны на любом шаге; финальная модалка показывается после успешного `POST` на тестовый API `dummyjson.com`.
+
+Приложение автоматически публикуется на GitHub Pages при каждом пуше в `main` через GitHub Actions (`.github/workflows/deploy.yml`).
 
 ## Стек и обоснование выбора библиотек
 
@@ -66,6 +70,21 @@ pnpm dev          # http://localhost:5173
 pnpm build        # tsc -b && vite build (с проверкой типов)
 pnpm preview      # локальный предпросмотр production-сборки
 ```
+
+## Деплой (GitHub Pages)
+
+Деплой полностью автоматический. Workflow `.github/workflows/deploy.yml`:
+
+1. Устанавливает `pnpm` (версия из поля `packageManager` в `package.json`) и Node 22.
+2. Запускает `pnpm install --frozen-lockfile` и `pnpm build`.
+3. Копирует `dist/index.html` → `dist/404.html` — чтобы GitHub Pages не отдавал реальный 404 при прямом переходе на `/step-2`, а возвращал SPA, где React Router сам разрулит путь.
+4. Публикует `dist` через `actions/deploy-pages@v4`.
+
+Нюансы конфигурации:
+
+- `vite.config.ts` выставляет `base: "/loan-application-spa/"` в production — все ассеты грузятся с правильного подпути.
+- `main.tsx` пробрасывает тот же префикс в `<BrowserRouter basename={import.meta.env.BASE_URL}>`.
+- Pages включены в режиме **Build and deployment: GitHub Actions** (настраивается один раз).
 
 ## Как проверить работоспособность
 
