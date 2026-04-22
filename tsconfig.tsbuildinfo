@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/api/products.ts","./src/components/stepindicator.tsx","./src/components/successmodal.tsx","./src/context/formdatacontext.tsx","./src/hooks/usecategories.ts","./src/pages/step1personal.tsx","./src/pages/step2address.tsx","./src/pages/step3loan.tsx"],"version":"5.7.3"}
