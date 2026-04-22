@@ -30,7 +30,8 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* basename = Vite base (dev: "/", prod на GitHub Pages: "/loan-application-spa/"). */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <FormDataProvider>
           <App />
         </FormDataProvider>
