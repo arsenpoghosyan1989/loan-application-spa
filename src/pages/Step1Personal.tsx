@@ -1,19 +1,37 @@
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
-import { Form, Button } from "react-bootstrap";
 import { IMaskInput } from "react-imask";
 import { useNavigate } from "react-router-dom";
 
-import { useFormData } from "../context/FormDataContext";
+import { useFormData } from "@/context/FormDataContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FieldError } from "@/components/ui/field-error";
 
-// react-hook-form + zod + @hookform/resolvers:
-//   - react-hook-form: производительные неконтролируемые формы, мало ре-рендеров.
-//   - zod: декларативные схемы валидации + вывод TS-типа из схемы (единый источник правды).
-//   - @hookform/resolvers: мост между zod-схемой и react-hook-form.
-// react-imask: готовое решение для маски ввода телефона (0XXX XXX XXX).
+/*
+ * Форма 1 — личные данные.
+ *
+ * Стек конкретного шага:
+ *   - @tanstack/react-form: headless-формы от TanStack, хорошо типизируются
+ *     и интегрируются с React Query (обе библиотеки от одной команды).
+ *   - zod: единая схема валидации + вывод TS-типов через z.infer.
+ *   - react-imask: маска телефона 0XXX XXX XXX (готовое решение).
+ *   - shadcn/ui + Tailwind: визуальный слой.
+ *
+ * Валидатор zod подключается декларативно через `validators: { onChange: schema }`.
+ * TanStack Form сам прогонит схему при каждом изменении и положит ошибки
+ * в `field.state.meta.errors`.
+ */
 const schema = z.object({
-  // Маска даёт строку "0XXX XXX XXX" — проверяем итоговый формат регуляркой.
+  // IMask отдаёт итоговую строку вида "0XXX XXX XXX" — проверяем регуляркой.
   phone: z
     .string()
     .min(1, "Введите телефон")
@@ -29,89 +47,125 @@ export default function Step1Personal() {
   const navigate = useNavigate();
   const { data, update } = useFormData();
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    // Подставляем уже введённые значения, чтобы при возврате "Назад" форма
-    // восстанавливалась из общего состояния.
+  // Расширенный тип формы: gender может быть "" до первого выбора пользователя.
+  type InternalValues = Omit<FormValues, "gender"> & { gender: FormValues["gender"] | "" };
+
+  const form = useForm({
+    // Значения берутся из общего контекста — при возврате "Назад" форма восстанавливается.
     defaultValues: {
       phone: data.phone,
       firstName: data.firstName,
       lastName: data.lastName,
-      gender: (data.gender || undefined) as FormValues["gender"],
+      gender: data.gender,
+    } as InternalValues,
+    validators: { onChange: schema },
+    onSubmit: ({ value }) => {
+      update(value as FormValues);
+      navigate("/step-2");
     },
-    mode: "onTouched",
   });
 
-  const onSubmit = (values: FormValues) => {
-    update(values);
-    navigate("/step-2");
-  };
-
   return (
-    <Form noValidate onSubmit={handleSubmit(onSubmit)}>
-      <h4 className="mb-3">Личные данные</h4>
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        form.handleSubmit();
+      }}
+      className="space-y-4"
+    >
+      <h2 className="text-xl font-semibold">Личные данные</h2>
 
-      <Form.Group className="mb-3" controlId="phone">
-        <Form.Label>Телефон</Form.Label>
-        <Controller
-          name="phone"
-          control={control}
-          render={({ field }) => (
+      <form.Field name="phone">
+        {(field) => (
+          <div className="space-y-1.5">
+            <Label htmlFor={field.name}>Телефон</Label>
             <IMaskInput
+              id={field.name}
+              name={field.name}
               mask="0000 000 000"
               type="tel"
-              className={`form-control ${errors.phone ? "is-invalid" : ""}`}
               placeholder="0XXX XXX XXX"
-              value={field.value ?? ""}
-              onAccept={(val: string) => field.onChange(val)}
-              onBlur={field.onBlur}
-              inputRef={field.ref}
+              value={field.state.value ?? ""}
+              onAccept={(val: string) => field.handleChange(val)}
+              onBlur={field.handleBlur}
+              aria-invalid={field.state.meta.errors.length > 0}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring aria-invalid:border-destructive aria-invalid:ring-destructive/20"
             />
+            <FieldError errors={field.state.meta.errors} />
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field name="firstName">
+        {(field) => (
+          <div className="space-y-1.5">
+            <Label htmlFor={field.name}>Имя</Label>
+            <Input
+              id={field.name}
+              name={field.name}
+              value={field.state.value ?? ""}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              aria-invalid={field.state.meta.errors.length > 0}
+            />
+            <FieldError errors={field.state.meta.errors} />
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field name="lastName">
+        {(field) => (
+          <div className="space-y-1.5">
+            <Label htmlFor={field.name}>Фамилия</Label>
+            <Input
+              id={field.name}
+              name={field.name}
+              value={field.state.value ?? ""}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+              aria-invalid={field.state.meta.errors.length > 0}
+            />
+            <FieldError errors={field.state.meta.errors} />
+          </div>
+        )}
+      </form.Field>
+
+      <form.Field name="gender">
+        {(field) => (
+          <div className="space-y-1.5">
+            <Label htmlFor={field.name}>Пол</Label>
+            <Select
+              value={field.state.value || undefined}
+              onValueChange={(val) => field.handleChange(val as FormValues["gender"])}
+            >
+              <SelectTrigger
+                id={field.name}
+                aria-invalid={field.state.meta.errors.length > 0}
+                onBlur={field.handleBlur}
+              >
+                <SelectValue placeholder="— Выберите —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Мужской</SelectItem>
+                <SelectItem value="female">Женский</SelectItem>
+              </SelectContent>
+            </Select>
+            <FieldError errors={field.state.meta.errors} />
+          </div>
+        )}
+      </form.Field>
+
+      <div className="flex justify-end pt-2">
+        <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+          {([canSubmit, isSubmitting]) => (
+            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+              Далее
+            </Button>
           )}
-        />
-        {errors.phone && <div className="invalid-feedback d-block">{errors.phone.message}</div>}
-      </Form.Group>
-
-      <Form.Group className="mb-3" controlId="firstName">
-        <Form.Label>Имя</Form.Label>
-        <Form.Control
-          type="text"
-          isInvalid={!!errors.firstName}
-          {...register("firstName")}
-        />
-        <Form.Control.Feedback type="invalid">{errors.firstName?.message}</Form.Control.Feedback>
-      </Form.Group>
-
-      <Form.Group className="mb-3" controlId="lastName">
-        <Form.Label>Фамилия</Form.Label>
-        <Form.Control
-          type="text"
-          isInvalid={!!errors.lastName}
-          {...register("lastName")}
-        />
-        <Form.Control.Feedback type="invalid">{errors.lastName?.message}</Form.Control.Feedback>
-      </Form.Group>
-
-      <Form.Group className="mb-4" controlId="gender">
-        <Form.Label>Пол</Form.Label>
-        <Form.Select isInvalid={!!errors.gender} {...register("gender")} defaultValue={data.gender}>
-          <option value="">— Выберите —</option>
-          <option value="male">Мужской</option>
-          <option value="female">Женский</option>
-        </Form.Select>
-        <Form.Control.Feedback type="invalid">{errors.gender?.message}</Form.Control.Feedback>
-      </Form.Group>
-
-      <div className="d-flex justify-content-end">
-        <Button type="submit" variant="primary">
-          Далее
-        </Button>
+        </form.Subscribe>
       </div>
-    </Form>
+    </form>
   );
 }

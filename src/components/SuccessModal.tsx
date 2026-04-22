@@ -1,33 +1,49 @@
-import { Button, Modal } from "react-bootstrap";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Props {
-  show: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   firstName: string;
   lastName: string;
   amount: number;
   term: number;
-  onClose: () => void;
 }
 
-export default function SuccessModal({ show, firstName, lastName, amount, term, onClose }: Props) {
+// Финальная модалка. Текст по ТЗ:
+// «Поздравляем, <Фамилия> <Имя>. Вам одобрена <сумма> на <срок> дней.»
+export default function SuccessModal({
+  open,
+  onOpenChange,
+  firstName,
+  lastName,
+  amount,
+  term,
+}: Props) {
   return (
-    <Modal show={show} onHide={onClose} centered backdrop="static">
-      <Modal.Header closeButton>
-        <Modal.Title>Заявка одобрена</Modal.Title>
-      </Modal.Header>
-      <Modal.Body className="text-center py-4">
-        <p className="fs-5 mb-0">
-          Поздравляем, <strong>{lastName} {firstName}</strong>.
-        </p>
-        <p className="fs-5 mt-2">
-          Вам одобрена <strong>${amount}</strong> на <strong>{term}</strong> дней.
-        </p>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="primary" onClick={onClose}>
-          Отлично
-        </Button>
-      </Modal.Footer>
-    </Modal>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Заявка одобрена</DialogTitle>
+        </DialogHeader>
+        <div className="py-2 text-center text-base">
+          <p>
+            Поздравляем, <strong>{lastName} {firstName}</strong>.
+          </p>
+          <p className="mt-2">
+            Вам одобрена <strong>${amount}</strong> на <strong>{term}</strong> дней.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Отлично</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

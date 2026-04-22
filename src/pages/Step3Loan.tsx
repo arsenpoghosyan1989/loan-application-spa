@@ -1,15 +1,27 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
-import { Alert, Button, Form } from "react-bootstrap";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
-import { useFormData } from "../context/FormDataContext";
-import { addProduct } from "../api/products";
-import SuccessModal from "../components/SuccessModal";
+import { useFormData } from "@/context/FormDataContext";
+import { addProduct } from "@/api/products";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import SuccessModal from "@/components/SuccessModal";
 
+/*
+ * Форма 3 — параметры займа.
+ *
+ * - Два Radix-слайдера (через shadcn): сумма $200–$1000 шаг $100, срок 10–30 дней шаг 1.
+ * - Submit делает POST https://dummyjson.com/products/add с телом
+ *   { title: `${firstName} ${lastName}` } через TanStack Query useMutation
+ *   (единая обработка isPending / isError / onSuccess).
+ * - На onSuccess показывается модалка shadcn Dialog с поздравлением.
+ */
 const AMOUNT = { min: 200, max: 1000, step: 100 } as const;
 const TERM = { min: 10, max: 30, step: 1 } as const;
 
@@ -25,20 +37,6 @@ export default function Step3Loan() {
   const { data, update, reset } = useFormData();
   const [showModal, setShowModal] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    // valueAsNumber — чтобы значения из range-инпутов приходили как числа.
-    defaultValues: { amount: data.amount, term: data.term },
-  });
-
-  const amount = watch("amount");
-  const term = watch("term");
-
   useEffect(() => {
     if (!data.workplace || !data.address) {
       navigate("/step-2", { replace: true });
@@ -50,10 +48,17 @@ export default function Step3Loan() {
     onSuccess: () => setShowModal(true),
   });
 
-  const onSubmit = (values: FormValues) => {
-    update(values);
-    mutation.mutate({ title: `${data.firstName} ${data.lastName}` });
-  };
+  const form = useForm({
+    defaultValues: {
+      amount: data.amount,
+      term: data.term,
+    } satisfies FormValues,
+    validators: { onChange: schema },
+    onSubmit: ({ value }) => {
+      update(value);
+      mutation.mutate({ title: `${data.firstName} ${data.lastName}` });
+    },
+  });
 
   const handleClose = () => {
     setShowModal(false);
@@ -63,66 +68,106 @@ export default function Step3Loan() {
 
   return (
     <>
-      <Form noValidate onSubmit={handleSubmit(onSubmit)}>
-        <h4 className="mb-3">Параметры займа</h4>
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit();
+        }}
+        className="space-y-6"
+      >
+        <h2 className="text-xl font-semibold">Параметры займа</h2>
 
-        <Form.Group className="mb-4" controlId="amount">
-          <Form.Label>
-            Сумма займа: <span className="range-value">${amount}</span>
-          </Form.Label>
-          <Form.Range
-            min={AMOUNT.min}
-            max={AMOUNT.max}
-            step={AMOUNT.step}
-            {...register("amount", { valueAsNumber: true })}
-          />
-          <div className="d-flex justify-content-between text-muted small">
-            <span>${AMOUNT.min}</span>
-            <span>${AMOUNT.max}</span>
-          </div>
-          {errors.amount && <div className="invalid-feedback d-block">{errors.amount.message}</div>}
-        </Form.Group>
+        <form.Field name="amount">
+          {(field) => (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={field.name}>Сумма займа</Label>
+                <span className="text-sm font-semibold text-primary">${field.state.value}</span>
+              </div>
+              <Slider
+                id={field.name}
+                min={AMOUNT.min}
+                max={AMOUNT.max}
+                step={AMOUNT.step}
+                value={[field.state.value]}
+                onValueChange={(v) => field.handleChange(v[0] ?? AMOUNT.min)}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>${AMOUNT.min}</span>
+                <span>${AMOUNT.max}</span>
+              </div>
+            </div>
+          )}
+        </form.Field>
 
-        <Form.Group className="mb-4" controlId="term">
-          <Form.Label>
-            Срок займа: <span className="range-value">{term} дн.</span>
-          </Form.Label>
-          <Form.Range
-            min={TERM.min}
-            max={TERM.max}
-            step={TERM.step}
-            {...register("term", { valueAsNumber: true })}
-          />
-          <div className="d-flex justify-content-between text-muted small">
-            <span>{TERM.min} дн.</span>
-            <span>{TERM.max} дн.</span>
-          </div>
-          {errors.term && <div className="invalid-feedback d-block">{errors.term.message}</div>}
-        </Form.Group>
+        <form.Field name="term">
+          {(field) => (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={field.name}>Срок займа</Label>
+                <span className="text-sm font-semibold text-primary">
+                  {field.state.value} дн.
+                </span>
+              </div>
+              <Slider
+                id={field.name}
+                min={TERM.min}
+                max={TERM.max}
+                step={TERM.step}
+                value={[field.state.value]}
+                onValueChange={(v) => field.handleChange(v[0] ?? TERM.min)}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{TERM.min} дн.</span>
+                <span>{TERM.max} дн.</span>
+              </div>
+            </div>
+          )}
+        </form.Field>
 
         {mutation.isError && (
-          <Alert variant="danger" className="py-2">
-            {(mutation.error as Error)?.message ?? "Ошибка отправки"}
+          <Alert variant="destructive">
+            <AlertDescription>
+              {(mutation.error as Error)?.message ?? "Ошибка отправки"}
+            </AlertDescription>
           </Alert>
         )}
 
-        <div className="d-flex justify-content-between">
-          <Button variant="outline-secondary" onClick={() => navigate("/step-2")} disabled={mutation.isPending}>
+        <div className="flex justify-between pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/step-2")}
+            disabled={mutation.isPending}
+          >
             Назад
           </Button>
-          <Button type="submit" variant="success" disabled={mutation.isPending}>
-            {mutation.isPending ? "Отправка..." : "Подать заявку"}
-          </Button>
+          <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+            {([canSubmit, isSubmitting]) => (
+              <Button type="submit" disabled={!canSubmit || isSubmitting || mutation.isPending}>
+                {mutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Отправка...
+                  </>
+                ) : (
+                  "Подать заявку"
+                )}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
-      </Form>
+      </form>
 
       <SuccessModal
-        show={showModal}
+        open={showModal}
+        onOpenChange={(open) => (open ? setShowModal(true) : handleClose())}
         firstName={data.firstName}
         lastName={data.lastName}
-        amount={amount}
-        term={term}
-        onClose={handleClose}
+        amount={form.state.values.amount}
+        term={form.state.values.term}
       />
     </>
   );
